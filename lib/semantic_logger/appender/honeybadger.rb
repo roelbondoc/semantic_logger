@@ -37,12 +37,20 @@ module SemanticLogger
       #   application: [String]
       #     Name of this application to appear in log messages.
       #     Default: SemanticLogger.application
-      def initialize(level: :error, **args, &block)
-        super(level: level, **args, &block)
+      def initialize(**args, &block)
+        super(**args, &block)
       end
 
       # Send an error notification to honeybadger
       def log(log)
+        error_notify(log) if log.level == :error
+        log_event(log)
+        true
+      end
+
+      private
+
+      def error_notify(log)
         context = formatter.call(log, self)
         if log.exception
           context.delete(:exception)
@@ -56,10 +64,12 @@ module SemanticLogger
           message[:backtrace] = log.backtrace if log.backtrace
           ::Honeybadger.notify(message)
         end
-        true
       end
 
-      private
+      def log_event(log)
+        context = formatter.call(log, self)
+        ::Honeybadger.event(context)
+      end
 
       # Use Raw Formatter by default
       def default_formatter
